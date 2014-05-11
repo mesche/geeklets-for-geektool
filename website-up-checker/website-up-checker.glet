@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Command</key>
+	<string>#!/usr/bin/php
+
+&lt;?php
+/**
+   ::::::::::::::: www.blogging-it.com :::::::::::::::
+   
+Version 1.0   
+   
+Copyright (C) 2014 Markus Eschenbach. All rights reserved.
+
+
+This software is provided on an "as-is" basis, without any express or implied warranty.
+In no event shall the author be held liable for any damages arising from the
+use of this software.
+
+Permission is granted to anyone to use this software for any purpose,
+including commercial applications, and to alter and redistribute it,
+provided that the following conditions are met:
+
+1. All redistributions of source code files must retain all copyright
+   notices that are currently in place, and this list of conditions without
+   modification.
+
+2. All redistributions in binary form must retain all occurrences of the
+   above copyright notice and web site addresses that are currently in
+   place (for example, in the About boxes).
+
+3. The origin of this software must not be misrepresented; you must not
+   claim that you wrote the original software. If you use this software to
+   distribute a product, an acknowledgment in the product documentation
+   would be appreciated but is not required.
+
+4. Modified versions in source or binary form must be plainly marked as
+   such, and must not be misrepresented as being the original software.
+   
+   ::::::::::::::: www.blogging-it.com :::::::::::::::
+*/
+
+ 
+
+// ************* CONFIGURATION ************* 
+
+$websites = array(
+        array('url' =&gt; 'www.blogging-it.com', 'name' =&gt; 'Blogging-IT', 'search' =&gt; 'head'),
+        array('url' =&gt; 'www.google.de', 'name' =&gt; 'Google')
+);
+
+$VERSION = '1.0';
+$COL_RED = "31"; 	//bash color escape code
+$COL_GREEN = "32";  //bash color escape code
+
+$NEWLINE = "\n";	//new line character
+$spacer = -1;		//default value for space size
+
+$default_exec_time = 100; //Default time (in seconds) to limit the maximum execution time
+$socket_timeout = 10; //default timeout (in seconds) for socket based streams 
+$maxResponseTime=5; //warning if the response time is bigger
+
+$user_agent = 'Mozilla/5.0 (Windows; U; Windows NT 6.0; en-GB; rv:1.9.0.3) Gecko/2008092417 Firefox/3.0.3'; //default user agent
+
+
+// ************* INIT ************* 
+
+foreach ($websites as $j =&gt; $svr)$spacer = (strlen($svr['name']) &gt; $spacer-10) ? (strlen($svr['name'])+10) : $spacer;
+ini_set('display_errors','Off');
+ini_set("default_socket_timeout",$socket_timeout);
+ini_set('user_agent',$user_agent);
+set_time_limit($default_exec_time);
+
+// ************* METHODS ************* 
+
+function colorize($text,$col){return "\033[".$col."m". $text. "\033[0m";}
+function showHeader(){return "\033[1m" . 'Website UP Checker ' . "\033[0m" . $VERSION . '  (last check: ' . date('d.m.Y H:i:s') . ')';}
+
+function spacer($txt,$no){return str_pad($txt, $no, " ", STR_PAD_RIGHT);}
+function formatPing($ping){return " (" . spacer($ping,(strlen($ping)+(6-strlen($ping)))) . "ms) ";}
+function diffTime($start,$end){return round((array_sum(explode(' ', $end)) - array_sum(explode(' ', $start)))*1000);};
+
+function searchString($fp,$searchKey){
+  if(empty($searchKey))return true;
+  stream_set_blocking($fp, 0);$data = '';$found = false;
+  while (!feof($fp) &amp;&amp; !$found){$data .= stream_get_line($fp, 1024);$found = (strpos($data, $searchKey, 0) != 0) ? true : false;}
+  return $found;
+}
+
+
+// ************* MAIN ************* 
+
+echo showHeader();
+echo $NEWLINE . $NEWLINE;
+
+foreach ($websites as $i =&gt; $serverInfos) {
+	$statusMSG = "";
+	$statusType = 'OFFLINE';
+
+	$curURL = $serverInfos['url'];
+	$curName = $serverInfos['name'];
+
+	if(strpos($curURL, '://') === false){
+		$curURL = "http://" . $curURL;
+	}
+	
+	$timestart = microtime(true);
+	$http_response_header = null;
+  	$fp=fopen($curURL,"r");
+
+
+	$responseCodeOK = strpos($http_response_header[0], '200');
+
+	if($fp){
+
+		if($responseCodeOK != 0){
+			if(!searchString($fp,$serverInfos['search'])){
+				$statusMSG = 'Search-text not found';
+				$statusType = 'ERROR';
+			}else{
+				$statusType = 'ONLINE';
+			}
+			
+		}		
+	}
+
+
+
+	$timeend = microtime(true);	
+	$ping = diffTime($timestart,$timeend);
+	
+	$toSlow = false;
+
+	if(!$fp){
+		if($http_response_header[0] == false &amp;&amp; ($socket_timeout*1000) &lt; $ping){
+				$statusMSG = 'Timeout';
+		}else if($http_response_header[0]){
+			$statusMSG = $http_response_header[0];
+		}else{
+			$statusMSG = 'Unknown Error';
+		}
+		$statusType = 'ERROR';
+	}else{
+		if(($maxResponseTime*1000) &lt; $ping){
+			$statusMSG = ' - to slow - ' . $statusMSG;
+			$toSlow = true;
+		}
+	}
+
+	fclose($fp);
+	$ping = formatPing($ping);
+	$pingSpacer = strlen($socket_timeout*1000)+ 8;
+	if($toSlow){
+		$ping = colorize($ping,$COL_RED);
+	}
+	
+	$statusType = colorize($statusType . " ",($statusType == 'ONLINE') ? $COL_GREEN : $COL_RED);
+
+	echo spacer($curName,$spacer) . spacer($statusType,18) .  spacer($ping,$pingSpacer) . $statusMSG .  $NEWLINE;
+
+}
+
+?&gt;</string>
+	<key>DisplayStatusImage</key>
+	<false/>
+	<key>DoesOverrideText</key>
+	<false/>
+	<key>DropShadow</key>
+	<false/>
+	<key>FailureImage</key>
+	<data>
+	TU0AKgAABAj///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANAAAAGgAAACAAAAAaAAAA
+	DQAAAAAAAAAAAAAAAAAAAAAAAAAA////AAAAAAAAAAAAAAAAAAAAAAgAAQFYGBYWqyso
+	KOExLy/9Kygo4RgWFqoAAQFXAAAACAAAAAAAAAAAAAAAAP///wAAAAAAAAAAAAAAAAgG
+	BgZ8Rz4+8qWXl//c09P/6+Tl/93T0/+ll5f/Rz4+8gYGBnwAAAAIAAAAAAAAAAD///8A
+	AAAAAAAAAAQHAgJkSS0t9Kt9ff/ct7j/7NHS/+7T0//s0dL/3be4/6t9ff9JLS30BwIC
+	ZQAAAAUAAAAA////AAAAAAAAAAAmLhAQzJA+P/+1TEv/xmNe/8twav/LcGr/y3Bq/8Zj
+	Xf+0TEv/kD4//y4QEMwAAAAmAAAAAP///wAAAAAABgAATmAZGvitMi//uSwh/8E+Mf/H
+	TED/yU9D/8hNQP/DPjL/uiwi/64xL/9gGRr4BwAATQAAAAD///8AAAAAARUAAGiJGBr/
+	wzgx/8tCNP/TV0n/3WZa/+BqXf/eaFr/1VhL/85DNP/GOTL/ihga/xYAAGcAAAAB////
+	AAAAAAkYAABslRoW/9JNQP/dYFL/63Jm//KAdv/2hXv/9IF3/+10Zv/gYVP/1k5B/5Ya
+	Fv8YAABrAAAACP///wAAAAANDAAAY4UZEu/iXU3/8Hhr//yFef/+lYn//puP//+Xiv/8
+	h3r/8Xlr/+ZdTv+HGRLwDQAAZAAAAAv///8AAAAADwAAAE5aDAfL4FZI//6LgP//mI7/
+	/qSY//+rnv/+p5r//5qP//+Ngf/nWEn/Ww0HywAAAE0AAAAN////AAAAAAwAAAAyDwAA
+	jJInH+z/gHL//6qe//+4rP//vrL//7uu//+soP//g3X/lioh7BEAAIsAAAAzAAAADP//
+	/wAAAAAFAAAAIAAAAF0dAACpkTUq6dt2Z/z6n5D//7Sj//qhkv/bd2r8kTYr6R4AAKoA
+	AABcAAAAIAAAAAX///8AAAAAAQAAAA0AAAAyAAAAZwYAAKI0DgrIYi4l2XlANeJiLiXZ
+	NA4KxwYAAKEAAABoAAAAMwAAAA0AAAAB////AAAAAAAAAAADAAAAEQAAADQAAABdAAAA
+	fAAAAI8AAACVAAAAjgAAAHsAAABbAAAANAAAABIAAAADAAAAAP///wAAAAAAAAAAAAAA
+	AAMAAAAOAAAAIQAAADYAAABGAAAATAAAAEUAAAA2AAAAIgAAAA4AAAAEAAAAAAAAAAD/
+	//8AAAAAAAAAAAAAAAAAAAAAAQAAAAUAAAALAAAAEAAAABMAAAARAAAACwAAAAUAAAAB
+	AAAAAAAAAAAAAAAAAA0BAAADAAAAAQAQAAABAQADAAAAAQAQAAABAgADAAAABAAABKoB
+	AwADAAAAAQABAAABBgADAAAAAQACAAABEQAEAAAAAQAAAAgBEgADAAAAAQABAAABFQAD
+	AAAAAQAEAAABFgADAAAAAQAQAAABFwAEAAAAAQAABAABHAADAAAAAQABAAABUgADAAAA
+	AQACAAABUwADAAAABAAABLIAAAAAAAgACAAIAAgAAQABAAEAAQ==
+	</data>
+	<key>FontFamily</key>
+	<string>Menlo-Regular</string>
+	<key>FontSize</key>
+	<real>14</real>
+	<key>GeekletFrame</key>
+	<string>{{100, 100}, {700, 150}}</string>
+	<key>HasShadow</key>
+	<false/>
+	<key>Identifier</key>
+	<string>org.tynsoe.geeklet.shell</string>
+	<key>Name</key>
+	<string>Website UP Checker 1.0</string>
+	<key>RefreshInterval</key>
+	<integer>3600</integer>
+	<key>SetLocale</key>
+	<true/>
+	<key>StatusImagePosition</key>
+	<integer>1</integer>
+	<key>SuccessImage</key>
+	<data>
+	TU0AKgAABAj///8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAANAAAAGgAAACAAAAAaAAAA
+	DQAAAAAAAAAAAAAAAAAAAAAAAAAA////AAAAAAAAAAAAAAAAAAAAAAgBAQFYFhUWqygn
+	KOEvLi/9KCco4RYVFqsBAQFYAAAACAAAAAAAAAAAAAAAAP///wAAAAAAAAAAAAAAAAgG
+	AwZ8Pj0+8peYl//S0tP/4+Tl/9LS0/+XmJf/Pj0+8gYDBnwAAAAIAAAAAAAAAAD///8A
+	AAAAAAAAAAUDAQJlLTEt9HqRff+40Ln/1efT/9jo1f/V59P/uNG5/3qRff8tMS30AwEC
+	ZQAAAAUAAAAA////AAAAAAAAAAAmEBYQyz1tP/9Xm03/eLJX/4e6YP+HuWL/h7pg/3ix
+	V/9Wmk3/PWw//xAWEMsAAAAmAAAAAP///wAAAAAAAAAAThY8Gvc8jjD/TJwb/2CnHf9r
+	ryz/bLEv/2ywLP9iqR7/TJ4b/zyQMP8WPBr3AAAATQAAAAD///8AAAAAAQAIAGgeYRv/
+	VaUq/2WvIP91uzb/gsZI/4bIS/+DyEj/d743/2exIP9WqSr/HmIb/wAIAGcAAAAB////
+	AAAAAAgADABsJ3MY/3C6Nv9/xz3/kNNT/57dYv+i32f/n99k/5HWVP+AyD3/cr02/yd0
+	GP8ADQBsAAAACf///wAAAAAMAAYAYydqEPB/yD7/lNhW/6PlZv+x8Xb/uPd8/7P0eP+k
+	6Gf/ldpX/4DLQP8maxDvAAYAYwAAAAv///8AAAAADwAAAE4XRwXLd8Y5/6foa/+393v/
+	wv6F/8r/i//F/4b/uPt8/6rubP95yTr/F0kFygAAAEwAAAAN////AAAAAAwAAAAyAAwA
+	jEB6GOyh7Vz/yP+J/9X/mP/b/5//2P+b/83/i/+m9F3/Qn4X7AEMAIsAAAAzAAAADP//
+	/wAAAAAFAAAAIAAAAF4GFQCpTIQc6ZbZU/zC+3n/2P+L/8T6fP+a21b8UIkd6AYXAKkA
+	AABcAAAAIAAAAAX///8AAAAAAQAAAA0AAAAzAAAAZwAFAKIaMwTHQGIZ2FV5JuFAYhnZ
+	GzQEyAAFAKAAAABnAAAAMgAAAA0AAAAB////AAAAAAAAAAADAAAAEQAAADQAAABdAAAA
+	ewAAAI8AAACWAAAAjwAAAHsAAABcAAAAMwAAABEAAAADAAAAAP///wAAAAAAAAAAAAAA
+	AAMAAAAOAAAAIQAAADYAAABGAAAATAAAAEcAAAA2AAAAIQAAAA0AAAAEAAAAAAAAAAD/
+	//8AAAAAAAAAAAAAAAAAAAAAAQAAAAUAAAALAAAAEAAAABMAAAASAAAADAAAAAUAAAAB
+	AAAAAAAAAAAAAAAAAA0BAAADAAAAAQAQAAABAQADAAAAAQAQAAABAgADAAAABAAABKoB
+	AwADAAAAAQABAAABBgADAAAAAQACAAABEQAEAAAAAQAAAAgBEgADAAAAAQABAAABFQAD
+	AAAAAQAEAAABFgADAAAAAQAQAAABFwAEAAAAAQAABAABHAADAAAAAQABAAABUgADAAAA
+	AQACAAABUwADAAAABAAABLIAAAAAAAgACAAIAAgAAQABAAEAAQ==
+	</data>
+	<key>TextColor</key>
+	<data>
+	BAtzdHJlYW10eXBlZIHoA4QBQISEhAdOU0NvbG9yAISECE5TT2JqZWN0AIWEAWMBhARm
+	ZmZmAQEBAYY=
+	</data>
+	<key>TextStrikethrough</key>
+	<integer>0</integer>
+	<key>TextUnderline</key>
+	<integer>0</integer>
+</dict>
+</plist>
